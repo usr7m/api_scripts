@@ -12,8 +12,8 @@ access_token = TDA_auth.access_token
 ''' initialize Mongo collection '''
 
 from pymongo import MongoClient
-db = MongoClient('mongodb://path_to_mongo:27017/')[DB_name]
-collection = db[collection_name]
+db = MongoClient('mongodb://localhost:27017/')['temp_db']
+collection = db['spy_hist_1min']
 
 
 ''' load from API '''
@@ -82,7 +82,6 @@ def new_data_to_Mongo():
 		api_data_on_date = select_date(date, API_data)
 		''' check if this day's data exists in db '''
 		db_data_on_date = pd.DataFrame(collection.find({'date' : date}))
-		db_data_on_date = pd.DataFrame(db_data_on_date['observations'][0])
 		if db_data_on_date.empty:
 			''' if it doesn't: create a new entry '''
 			print('no such entry')
@@ -91,7 +90,8 @@ def new_data_to_Mongo():
 			collection.insert_one(new_entry)
 			print('created!')
 		else:	
-			''' if it does - update observations (if new are available) '''		
+			''' if it does - update observations (if new are available) '''
+			db_data_on_date = pd.DataFrame(db_data_on_date['observations'][0])
 			new_data = db_data_on_date.merge(api_data_on_date, 
 									on = 'datetime',
 									how = 'outer',
