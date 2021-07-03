@@ -25,8 +25,8 @@ access_token = TDA_auth.access_token
 
 def get_user_principals(fields):
 	resp = requests.get('https://api.tdameritrade.com/v1/userprincipals',
-						headers={'Authorization': 'Bearer ' + access_token},
-						params={'fields': fields})
+			headers={'Authorization': 'Bearer ' + access_token},
+			params={'fields': fields})
 	print(resp.status_code)
 	return resp.json()
 
