@@ -156,4 +156,4 @@ send_msg(\
 message = recv_msg()
 ws.close()
 df = parse_chart_hist_futs(message)
-df
+print(df)
