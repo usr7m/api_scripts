@@ -85,11 +85,11 @@ def parse_chart_hist_futs(message):
 	data = pd.DataFrame(data.content[0])
 	data = pd.DataFrame(data['3'][0])
 	data.rename(columns = {	'0' : 'datetime',
-							'1' : 'open',
-							'2' : 'high',
-							'3'	: 'low',
-							'4'	: 'close',
-							'5'	: 'volume'}, 
+				'1' : 'open',
+				'2' : 'high',
+				'3'	: 'low',
+				'4'	: 'close',
+				'5'	: 'volume'}, 
 				inplace = True)
 	data['datetime'] = localize_tz(data['datetime'])
 	return data
@@ -148,10 +148,10 @@ send_msg(LOGIN)
 recv_msg()
 send_msg(\
 	CHART_HISTORY_FUTURES(req_id = 1,
-								symbol = '/ES',
-								freq  = 'm5',  # m1: 1 min, d1 : 1 day
-								startDate = startDate,
-								endDate = endDate))
+				symbol = '/ES',
+				freq  = 'm5',  # m1: 1 min, d1 : 1 day
+				startDate = startDate,
+				endDate = endDate))
 
 message = recv_msg()
 ws.close()
