@@ -189,20 +189,23 @@ def predict_n_day_price(poly, fit, n_day):
 	z = fit.predict(x)
 	return z[0][0]
 
-
 def run_regression_pred(n_day, dte_lim = 1000):
-	df = straddle_df_ATM.loc[straddle_df_ATM['daysToExpiration'] < dte_lim].copy()
-	regr = linear_model.LinearRegression()
-	poly_fit = poly_reg(\
-						regr,
-						df['daysToExpiration'],
-						df['straddlePrice'],
-						deg = 3)
-	poly = poly_fit[0]
-	fit = poly_fit[1]
-	df['predictions'] = poly_fit[2]
-	pred_n_day = predict_n_day_price(poly, fit, n_day)
-	return df, n_day, pred_n_day
+	if n_day > dte_lim:
+		print('no')
+		return
+	else:
+		df = straddle_df_ATM.loc[straddle_df_ATM['daysToExpiration'] < dte_lim].copy()
+		regr = linear_model.LinearRegression()
+		poly_fit = poly_reg(\
+				regr,
+				df['daysToExpiration'],
+				df['straddlePrice'],
+				deg = 3)
+		poly = poly_fit[0]
+		fit = poly_fit[1]
+		df['predictions'] = poly_fit[2]
+		pred_n_day = predict_n_day_price(poly, fit, n_day)
+		return df, n_day, pred_n_day
 
 
 def plot_n_day_regression(df, n_day, pred_n_day):
