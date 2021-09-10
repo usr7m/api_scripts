@@ -192,7 +192,7 @@ def predict_n_day_price(poly, fit, n_day):
 def run_regression_pred(n_day, dte_lim = 1000):
 	if n_day > dte_lim:
 		print('no')
-		return
+		return 0,0,0
 	else:
 		df = straddle_df_ATM.loc[straddle_df_ATM['daysToExpiration'] < dte_lim].copy()
 		regr = linear_model.LinearRegression()
