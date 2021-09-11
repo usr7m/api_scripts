@@ -107,7 +107,6 @@ def expiration_frame(df):
 def get_straddle_list(df):
 	l = []
 	for e in df['daysToExpiration'].unique():
-		print(e)
 		df_e = df[df['daysToExpiration'] == e].copy()
 		df_e.reset_index(drop = True, inplace = True)
 		exp_list = expiration_frame(df_e)	
