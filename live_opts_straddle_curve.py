@@ -35,6 +35,29 @@ def parse_datetime(df):
 		except KeyError:
 			pass
 
+def parse_optsData_types(df):
+	col_type = {\
+			'bool' 	:	['isIndexOption', 'inTheMoney', 'mini', 'nonStandard'],
+			'str'	:	['putCall', 'symbol', 'description', 'bidAskSize',
+						'exchangeName', 'expirationType', 'underlyingSymbol'],
+			'float'	:	['bid', 'ask', 'last', 'mark', 'highPrice', 'lowPrice', 
+						'openPrice', 'closePrice', 'netChange', 'volatility', 
+						'delta', 'gamma', 'theta', 'vega', 'rho', 'timeValue', 
+						'theoreticalOptionValue', 'theoreticalVolatility',
+						'strikePrice', 'multiplier', 'percentChange',
+						'underlyingMark', 'log_diff' ],
+			'int'	:	['bidSize', 'askSize', 'lastSize', 
+						'totalVolume', 'tradeTimeInLong', 'quoteTimeInLong', 
+						'openInterest', 'expirationDate', 'daysToExpiration', 
+						'lastTradingDay', 'datetime' ]
+			}
+	for t in col_type.keys():
+		for col in col_type[t]:
+			try:
+				df[col] = df[col].astype(t)
+			except KeyError:
+				pass
+
 
 def get_opts_from_API(symbol):
 	query = option_chain(symbol).copy()
@@ -129,6 +152,7 @@ def get_ATM_straddle_df(df):
 
 def run_ATM_straddle(symbol):
 	opts_df = get_opts_from_API(symbol)
+	parse_optsData_types(opts_df)
 	parse_datetime(opts_df)
 	straddle_list = [item for sublist in get_straddle_list(opts_df) for item in sublist]
 	straddle_df = pd.DataFrame(straddle_list)
@@ -145,7 +169,6 @@ def plot_dte_straddle(df):
 
 symbol = 'SPY'
 opts_df, straddle_df, straddle_df_ATM = run_ATM_straddle(symbol)
-
 
 plot_dte_straddle(straddle_df_ATM)
 
@@ -214,9 +237,9 @@ def plot_n_day_regression(df, n_day, pred_n_day):
 	plt.grid()
 	plt.show()
 
-''' example:  '''
-	
-n_day = 30  
+''' example '''
+
+n_day = 30
 df, n_day, pred_n_day = run_regression_pred(n_day, dte_lim = 100)
 
 plot_n_day_regression(df, n_day, pred_n_day)
