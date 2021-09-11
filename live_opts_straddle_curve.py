@@ -1,7 +1,3 @@
-# real time option chain retriever, straddle price calculator
-# calculates all and ATM straddle prices specifically, 
-# with ability to estimate n_day DTE straddle price via polynomial regression 
-
 import requests
 import pandas as pd
 import numpy as np
@@ -11,23 +7,23 @@ import matplotlib.pyplot as plt
 
 def option_chain(symbol):
 	resp = requests.get('https://api.tdameritrade.com/v1/marketdata/chains',
-						params={'apikey': 'you_api_key_here',
-								'symbol': symbol,
-								'contractType': 'ALL',
-								'strikeCount': 100,
-								'includeQuotes': 'True',
-								'strategy': 'SINGLE',  
-								'interval': '',
-								'strike': '', 
-								'range': 'ALL' ,
-								'fromDate': '',
-								'toDate': '',
-								'volatility': '',
-								'underlyingPrice': '',
-								'interestRate': '',
-								'daysToExpiration': '',
-								'expMonth': 'ALL', 
-								'optionType': 'ALL'})		
+				params={'apikey': 'your_api_key_here',
+					'symbol': symbol,
+					'contractType': 'ALL',
+					'strikeCount': 100,
+					'includeQuotes': 'True',
+					'strategy': 'SINGLE',  
+					'interval': '',
+					'strike': '', 
+					'range': 'ALL' ,
+					'fromDate': '',
+					'toDate': '',
+					'volatility': '',
+					'underlyingPrice': '',
+					'interestRate': '',
+					'daysToExpiration': '',
+					'expMonth': 'ALL', 
+					'optionType': 'ALL'})		
 	print(resp.status_code)
 	return resp.json()
 
@@ -75,64 +71,58 @@ def find_n_closest(data, target, n):
 	return np.concatenate(v)
 
 
-def get_straddle_df(opts_df):
-	df = opts_df.copy()
+
+def straddle_frame(df):
+	callPrice = df.loc[df['putCall'] == 'CALL']['closePrice'].values[0]
+	putPrice = df.loc[df['putCall'] == 'PUT']['closePrice'].values[0]
+	straddlePrice = callPrice + putPrice
+	frame = {\
+		'callPrice': callPrice,
+		'putPrice': putPrice,
+		'straddlePrice': straddlePrice,
+		}
+	return frame
+
+
+
+def expiration_frame(df):
+	dte = df['daysToExpiration'].values[0]
+	underlyingSymbol = df['underlyingSymbol'].values[0]
+	underlyingMark = df['underlyingMark'].values[0]
+	call_strikes = df.loc[df['putCall'] == 'CALL']['strikePrice'].values
+	put_strikes = df.loc[df['putCall'] == 'PUT']['strikePrice'].values
+	common_strikes = [x for x in call_strikes if x in put_strikes]
+	exp_list = []
+	for x in common_strikes:
+		df_s = df.loc[df['strikePrice'] == x].copy()
+		frame = straddle_frame(df_s)
+		frame['strikePrice'] = x
+		frame['underlyingSymbol'] = underlyingSymbol
+		frame['underlyingMark'] = underlyingMark
+		frame['daysToExpiration'] = dte
+		exp_list.append(frame)
+	return exp_list
+
+
+def get_straddle_list(df):
 	l = []
 	for e in df['daysToExpiration'].unique():
+		print(e)
 		df_e = df[df['daysToExpiration'] == e].copy()
 		df_e.reset_index(drop = True, inplace = True)
-		dte = df_e['daysToExpiration'].values[0]
-		underlyingSymbol = df['underlyingSymbol'].values[0]
-		underlyingMark = df['underlyingMark'].values[0]
-		call_strikes = df_e.loc[df_e['putCall'] == 'CALL']['strikePrice'].values
-		put_strikes = df_e.loc[df_e['putCall'] == 'PUT']['strikePrice'].values
-		common_strikes = [x for x in call_strikes if x in put_strikes]
-		for x in common_strikes:
-			df_s = df_e.loc[df_e['strikePrice'] == x].copy()
-			df_s_CALL = df_s.loc[df_s['putCall'] == 'CALL'].copy()
-			callPrice = df_s_CALL['closePrice'].values[0]
-			df_s_PUT = df_s.loc[df_s['putCall'] == 'PUT'].copy()
-			putPrice = df_s_PUT['closePrice'].values[0]
-			straddlePrice = callPrice + putPrice
-			frame = {\
-				'dte': e,
-				'underlyingSymbol' : underlyingSymbol,
-				'daysToExpiration': dte,
-				'strikePrice': x,
-				'callPrice': callPrice,
-				'putPrice': putPrice,
-				'straddlePrice': straddlePrice,
-				'underlyingMark': underlyingMark
-				}
-			l.append(frame)
-	straddle_df = pd.DataFrame(l)
-	return straddle_df
-
-
-def find_n_closest(data, target, n):
-	d = data.copy()
-	v = [] 
-	abs_diff = lambda d : abs(d - target)
-	for i in range(n * 2 + 1):
-		abs_diff_series = abs_diff(d)
-		try:
-			idx = abs_diff_series[abs_diff_series == min(abs_diff(d))].index
-			v.append(d[idx].values)
-			d.drop(idx, inplace = True)
-		except ValueError:
-			print('request out of bounds')
-	return np.concatenate(v)
+		exp_list = expiration_frame(df_e)	
+		l.append(exp_list)
+	return l
 
 
 
-def get_ATM_straddle_df(straddle_df):
+def get_ATM_straddle_df(df):
 	df_atm = pd.DataFrame()
-	df = straddle_df.copy()
 	for dte in df['daysToExpiration'].unique():
 		df_sample = df.loc[df['daysToExpiration'] == dte]
 		atm = find_n_closest(	df_sample['strikePrice'],
-								df_sample['underlyingMark'],
-								0)[0]
+					df_sample['underlyingMark'],
+					0)[0]
 		df_sample = df_sample.loc[df_sample['strikePrice'] == atm]
 		df_atm = df_atm.append(df_sample)
 	return df_atm
@@ -141,7 +131,8 @@ def get_ATM_straddle_df(straddle_df):
 def run_ATM_straddle(symbol):
 	opts_df = get_opts_from_API(symbol)
 	parse_datetime(opts_df)
-	straddle_df = get_straddle_df(opts_df)
+	straddle_list = [item for sublist in get_straddle_list(opts_df) for item in sublist]
+	straddle_df = pd.DataFrame(straddle_list)
 	straddle_df_ATM = get_ATM_straddle_df(straddle_df)
 	straddle_df_ATM = straddle_df_ATM.loc[straddle_df_ATM['straddlePrice'] > 0]
 	straddle_df_ATM
@@ -156,8 +147,8 @@ def plot_dte_straddle(df):
 symbol = 'SPY'
 opts_df, straddle_df, straddle_df_ATM = run_ATM_straddle(symbol)
 
-plot_dte_straddle(straddle_df_ATM)
 
+plot_dte_straddle(straddle_df_ATM)
 
 
 
@@ -189,6 +180,7 @@ def predict_n_day_price(poly, fit, n_day):
 	z = fit.predict(x)
 	return z[0][0]
 
+
 def run_regression_pred(n_day, dte_lim = 1000):
 	if n_day > dte_lim:
 		print('no')
@@ -197,10 +189,10 @@ def run_regression_pred(n_day, dte_lim = 1000):
 		df = straddle_df_ATM.loc[straddle_df_ATM['daysToExpiration'] < dte_lim].copy()
 		regr = linear_model.LinearRegression()
 		poly_fit = poly_reg(\
-				regr,
-				df['daysToExpiration'],
-				df['straddlePrice'],
-				deg = 3)
+					regr,
+					df['daysToExpiration'],
+					df['straddlePrice'],
+					deg = 3)
 		poly = poly_fit[0]
 		fit = poly_fit[1]
 		df['predictions'] = poly_fit[2]
@@ -212,7 +204,7 @@ def plot_n_day_regression(df, n_day, pred_n_day):
 	plt.scatter(df['daysToExpiration'], df['straddlePrice'])
 	plt.plot(df['daysToExpiration'], df['straddlePrice'])
 	plt.plot(df['daysToExpiration'], df['predictions'], c = 'orange')
-	plt.scatter(n_day, pred_n_day, c = 'red')
+	plt.scatter(n_day, pred_n_day, c = 'red', s = 35)
 	plt.annotate(\
 		str(n_day) + ' days', 
 		xy=(n_day, pred_n_day), 
@@ -223,8 +215,9 @@ def plot_n_day_regression(df, n_day, pred_n_day):
 	plt.grid()
 	plt.show()
 
-
-n_day = 10
+''' example:  '''
+	
+n_day = 30  
 df, n_day, pred_n_day = run_regression_pred(n_day, dte_lim = 100)
 
 plot_n_day_regression(df, n_day, pred_n_day)
